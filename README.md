@@ -6,6 +6,13 @@
 I am using Picocli to create this cli application, and using GraalVM to compile the Java application into executable.
 with is the `./tweeit`.
 
+## Goal
+People said Java is bad for CLI, but I want to challenge myself to try doing everything in Java, and CLI application is one of them.
+
+To explore the world of CLI, this is the first simple cli I am doing 
+and I will explore more about capability of picocli including ASCII art, colors and more.
+Hopefully I can create text based adventure games with picocli or some dev tools with picocli.
+
 ## Setup: How to use it?
 Set up your project on X.com and get all the keys and secrets.
 
@@ -29,7 +36,7 @@ Let me know if it doesn't work ^^;
 Make sure you have graalvm installed, or you can install it with SDKMAN or go to this guide https://www.graalvm.org/latest/docs/getting-started/
 then run
 
-`native-image -cp  picocli-4.7.6.jar  -jar target/Tweeit-1.0-SNAPSHOT-jar-with-dependencies.jar tweeit`
+`native-image -cp  picocli-4.7.6.jar  -jar target/Tweeit-0.1-SNAPSHOT-jar-with-dependencies.jar tweeit`
 
 ## Challenge
 Setting up the right `pom.xml` is a bit tricky, because we will need to compile to native image we will need to use the maven assembly module
