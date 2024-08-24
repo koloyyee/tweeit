@@ -19,7 +19,7 @@ Set up your project on X.com and get all the keys and secrets.
 Guide: https://developer.x.com/en/docs/tutorials/step-by-step-guide-to-making-your-first-request-to-the-twitter-api-v2
 
 
-Go to `src/main/resouces` create a `.env` file.
+Go to `src/main/resources` create a `.env` file.
 ```.env
 API_KEY=get_from_x
 API_SECRET_KEY=get_from_x
