@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -84,9 +85,9 @@ class Tweeit implements Callable<Integer> {
 						.build();
     System.out.println(request.headers());
 		System.out.println(request.bodyPublisher().get());
-//		var response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
-//		String str = response.get().body();
-//    System.out.println(str);
+		var response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+		String str = response.get().body();
+    System.out.println(str);
 		return 0;
 	}
 }
