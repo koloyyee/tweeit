@@ -92,7 +92,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>co.loyyee.CheckSum</mainClass>
+                            <mainClass>co.loyyee.Tweeit</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
