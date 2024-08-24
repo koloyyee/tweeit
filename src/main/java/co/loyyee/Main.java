@@ -1,25 +1,20 @@
 package co.loyyee;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.math.BigInteger;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.InvalidKeyException;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.Callable;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 import javax.crypto.Mac;
@@ -49,19 +44,22 @@ class Tweeit implements Callable<Integer> {
 	}
 	
 	public static void main(String... args){
-    System.out.println(System.getProperty("os.name"));
     int exitCode = new CommandLine(new Tweeit()).execute(args);
 		System.exit(exitCode);
 	}
 	
 	@Override
 	public Integer call() throws Exception {
-		// TODO: setup authorization header OAuth 1.0
+		if(tweet.trim().length() >= 200 ) throw new IllegalArgumentException("Tweet too long.");
+		if(tweet.contains("\"")) {
+			tweet.replace("\"", "");
+		}
+    System.out.println(tweet);
+		String tweetJson =" { \"text\" : \"%s\"} ".formatted(tweet);
 		
-		System.out.println(apiKey);
+		System.out.println(tweetJson);
 		
 		Map<String, String> params = new HashMap<>();
-//		params.put("status", tweet);
 		String authHeader = OAuth1.generateAuthorizationHeaders(
 				"POST",
 				"https://api.x.com/2/tweets",
@@ -76,7 +74,7 @@ class Tweeit implements Callable<Integer> {
 		HttpRequest request =
 				HttpRequest.newBuilder()
 						.uri(URI.create("https://api.x.com/2/tweets"))
-						.POST(HttpRequest.BodyPublishers.ofString(" { \"text\" : \" Hello from CLI\"} " ))
+						.POST(HttpRequest.BodyPublishers.ofString(tweetJson))
 						.headers(
 								"Authorization", authHeader,
 							"Content-Type"	, "application/json"
@@ -84,15 +82,32 @@ class Tweeit implements Callable<Integer> {
 						.build();
     System.out.println(request.headers());
 		System.out.println(request.bodyPublisher().get());
-		var response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
-		String str = response.get().body();
-    System.out.println(str);
+//		var response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+//		String str = response.get().body();
+//    System.out.println(str);
 		return 0;
 	}
 }
 
+
+/**
+ * For Posting on X.com we can use OAuth 1.0 or 2, <br>
+ * OAuth 1.0 requires less setup but we need to create signature with SHA-1 hashing algorithm.
+ * */
 class OAuth1 {
 	
+	/**
+	 *<h3>Creating OAuth 1.0 Signature here. </h3>
+	 * Product: <br>
+	 * Authorization=[OAuth oauth_nonce="xxx", <br>
+	 * oauth_signature="xxx", <br>
+	 * oauth_token="xxx",  <br>
+	 * oauth_consumer_key="xxx",  <br>
+	 * oauth_signature_method="HMAC-SHA1", <br>
+	 * oauth_timestamp="xxx",  <br>
+	 * oauth_version="1.0"]
+	 *
+	 * */
 	public static String generateAuthorizationHeaders(String method, String url, Properties properties , Map<String, String> params, String consumerSecret, String tokenSecret){
 		
 		params.put("oauth_consumer_key", properties.getProperty("API_KEY"));
@@ -126,14 +141,40 @@ class OAuth1 {
 		} catch (InvalidKeyException e) {
 			throw new RuntimeException(e);
 		}
-		
 	}
+
+/**
+ * <h3>Create a Base String Signature for OAuth 1.0</h3>
+ * The Goal is to create a Base String Signature for OAuth 1.0,<br>
+ * which will be hashed with HMAC-SHA1. <br>
+ * The whole string is {@link URLEncoder#encode(String, String)}. <br>
+ * Product: <br>
+ * POST&https%3A%2F%2Fapi.x.com%2F2%2Ftweets&oauth_consumer_key%3Dxxx%26oauth_nonce%3Dxxx%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3Dxxx%26oauth_token%3Dxxx%26oauth_version%3D1.0
+ * <br>
+ * POST - HTTP Request Method <br>
+ * https%3A%2F%2Fapi.x.com%2F2%2Ftweets - https://api.x.com/2/tweets  <br>
+ * oauth_consumer_key%3Dxxx - oauth_consumer_key=xxx
+ * ...etc <br>
+ * oauth_signature_method%3DHMAC-SHA1 - oauth_signature_method=HMAC-SHA1
+ * */
 	private static String createSignatureBaseString(String method, String url, Map<String, String> params) throws UnsupportedEncodingException {
+		// Concat the string with StringBuilder
 		StringBuilder baseBuilder = new StringBuilder();
 		baseBuilder.append(method.toUpperCase())
 				.append("&")
 				.append(URLEncoder.encode(url, StandardCharsets.UTF_8))
 				.append("&");
+		
+		/**
+		 * Sorting with {@link TreeMap} ensures that the parameters are in lexicographical (alphabetical) order,
+		 * which is a requirement for generating the correct signature base string in OAuth 1.0.
+		 *
+		 * This order is necessary to ensure that both the client and server generate the same signature
+		 * for the same request, thus maintaining the integrity and security of the OAuth process.
+		 *
+		 * The order will be
+		 * oauth_consumer_key, oauth_nonce, oauth_signature_method, oauth_timestamp, oauth_token, oauth_version
+		 * */
 		TreeMap<String, String>	 sortedParams = new TreeMap<>(params);
 		StringBuilder paramBuilder  = new StringBuilder();
 		for(Map.Entry<String, String> entry : sortedParams.entrySet()){
@@ -144,8 +185,16 @@ class OAuth1 {
 		}
 		paramBuilder.setLength(paramBuilder.length() - 1);
 		baseBuilder.append(URLEncoder.encode(paramBuilder.toString(), StandardCharsets.UTF_8.name()));
+    System.out.println(baseBuilder.toString());
 		return baseBuilder.toString();
 	}
+	
+	/**
+	 * <h3>This is hashing process with HMAC-SHA-1. </h3>
+	 * key is the combination of consumer secret(api secret key from x.com) and token secret (token secret from x.com) <br>
+	 * {@link Mac} is a Javax library that hash data based on input algorithm, this time will be HMAC-SHA-1. <br>
+	 * and finally return a Base64 encoded string of the hashed value.
+	 * */
 	private static String generateSHA1Signature(String baseString, String consumerSecret, String tokenSecret) throws NoSuchAlgorithmException, UnsupportedEncodingException, InvalidKeyException {
 		String key = URLEncoder.encode(consumerSecret, StandardCharsets.UTF_8.name()) + "&" + URLEncoder.encode(tokenSecret, StandardCharsets.UTF_8.name());
 		final Mac mac = Mac.getInstance("HmacSHA1");
@@ -153,34 +202,6 @@ class OAuth1 {
 				mac.init(secret);
 				byte[] hash = mac.doFinal(baseString.getBytes(StandardCharsets.UTF_8));
 		return Base64.getEncoder().encodeToString(hash)	;
-	}
-}
-
-
-
-@Command(name = "checksum", mixinStandardHelpOptions = true, version = "checksum 4.0",
-		description = "Prints the checksum (SHA-256 by default) of a file to STDOUT.")
-class CheckSum implements Callable<Integer> {
-	
-	@Parameters(index = "0", description = "The file whose checksum to calculate.")
-	private File file;
-	
-	@Option(names = {"-a", "--algorithm"}, description = "MD5, SHA-1, SHA-256, ...")
-	private String algorithm = "SHA-256";
-	
-	// this example implements Callable, so parsing, error handling and handling user
-	// requests for usage help or version help can be done with one line of code.
-	public static void main(String... args) {
-		int exitCode = new CommandLine(new CheckSum()).execute(args);
-		System.exit(exitCode);
-	}
-	
-	@Override
-	public Integer call() throws Exception { // your business logic goes here...
-		byte[] fileContents = Files.readAllBytes(file.toPath());
-		byte[] digest = MessageDigest.getInstance(algorithm).digest(fileContents);
-		System.out.printf("%0" + (digest.length*2) + "x%n", new BigInteger(1, digest));
-		return 0;
 	}
 }
 
